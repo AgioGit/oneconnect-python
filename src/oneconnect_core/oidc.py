@@ -57,6 +57,8 @@ def _find_free_port(start: int = 49215, end: int = 65535, host: str = "127.0.0.1
 
 # Standard algorithms for OIDC id_token (JWT).
 _ID_TOKEN_ALGORITHMS = ["RS256", "ES256", "PS256"]
+# Tolerate some clock skew
+_ID_TOKEN_LEEWAY_SECONDS = 60
 
 
 def _verify_id_token_sync(
@@ -76,6 +78,7 @@ def _verify_id_token_sync(
         audience=audience,
         issuer=issuer,
         options={"verify_aud": True, "verify_iss": True, "verify_exp": True},
+        leeway=_ID_TOKEN_LEEWAY_SECONDS,
     )
     if expected_nonce is not None and claims.get("nonce") != expected_nonce:
         raise jwt.InvalidTokenError("nonce mismatch")
