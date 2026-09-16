@@ -47,7 +47,7 @@ class ClientEnvironment:
 @dataclass(slots=True)
 class ConfigAuthXml:
     message_type: ConfigAuthMessageType = ConfigAuthMessageType.INIT
-    auth_id: ConfigAuthId = ConfigAuthId.FAILURE
+    auth_id: ConfigAuthId = ConfigAuthId.MAIN
     authenticator: Authenticator = Authenticator.FORM
     parameters: List[ConfigAuthXmlParameter] = field(default_factory=list)
 
@@ -75,14 +75,14 @@ class ConfigAuthXml:
         device.text = "linux"
 
         if msg_type == ConfigAuthMessageType.AUTH_REPLY:
-            auth_el = ET.Element("auth")
-            if self.authenticator in (Authenticator.FORM, Authenticator.OIDC):
+            auth_el = ET.Element("auth", {"id": self.auth_id.value})
+            # For FORM, OIDC and ONE_TOUCH include parameters as direct child elements.
+            if self.authenticator in (Authenticator.FORM, Authenticator.OIDC, Authenticator.ONE_TOUCH):
+                auth_el.set("authenticator", self.authenticator.value)
                 for p in self.parameters:
                     el = ET.Element(p.name)
                     el.text = p.value or ""
                     auth_el.append(el)
-            elif self.authenticator == Authenticator.ONE_TOUCH:
-                auth_el.set("authenticator", "onetouch")
             root.append(auth_el)
 
         if self.client_environment is not None:
@@ -132,22 +132,16 @@ class ConfigAuthXml:
         client_id = ((auth_el.findtext("client-id") or "").strip())
         nonce = auth_el.findtext("nonce")
 
-        parameters: List[ConfigAuthXmlParameter] = []
         form_action: Optional[str] = None
         form_nodes = auth_el.findall("form")
-        if len(form_nodes) > 1:
-            raise ValueError("Expected at most one form element")
-        if form_nodes:
+        if not form_nodes:
+            parameters = list(ConfigAuthXml.read_one_touch_params(auth_el))
+        else:
+            if len(form_nodes) > 1:
+                raise ValueError("Expected at most one form element")
             form_el = form_nodes[0]
             form_action = (form_el.attrib.get("action") or "").strip() or None
-            for input_el in form_el.findall("input"):
-                parameters.append(
-                    ConfigAuthXmlParameter(
-                        name=input_el.attrib["name"],
-                        label=input_el.attrib.get("label"),
-                        input_type=input_el.attrib.get("type"),
-                    )
-                )
+            parameters = list(ConfigAuthXml.read_form_params(form_el))
 
         session_token = None
         sess_nodes = root.findall(".//session-token")
@@ -168,3 +162,28 @@ class ConfigAuthXml:
             client_id=client_id,
             nonce=nonce,
         )
+
+    @staticmethod
+    def read_form_params(form_el: ET.Element[str]):
+        for input_el in form_el.findall("input"):
+            yield ConfigAuthXmlParameter(
+                name=input_el.attrib["name"],
+                label=input_el.attrib.get("label"),
+                input_type=input_el.attrib.get("type"),
+            )
+
+    @staticmethod
+    def read_one_touch_params(auth_el: ET.Element[str]):
+        # OneTouch flows return or expect parameter elements as
+        # direct children of <auth> (e.g. <username>...), not wrapped in a <form>.
+        # Collect those as parameters as well.
+        known_tags = {"message", "discovery-endpoint", "client-id", "nonce", "form"}
+        for child in auth_el:
+            if child.tag in known_tags:
+                continue
+            # Skip session-token and other nested structures handled elsewhere
+            if child.tag == "session-token":
+                continue
+            name = child.tag
+            value = (child.text or "").strip()
+            yield ConfigAuthXmlParameter(name=name, value=value)

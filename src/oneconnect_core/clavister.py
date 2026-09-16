@@ -143,6 +143,9 @@ async def obtain_webvpn_secrets(
     )
     headers = build_request_headers(client_env, TunnelConfiguration())
 
+    async def post_auth(uri, auth) -> str:
+        return await _post_config_auth(session, uri, headers, auth)
+
     log(f"ClientVersion={client_env.client_version}, OS={client_env.operating_system_information}, Arch={client_env.operating_system_architecture}")
     log(f"AV enabled={client_env.is_av_enabled} updated={client_env.is_av_updated}")
 
@@ -151,37 +154,86 @@ async def obtain_webvpn_secrets(
     connector = aiohttp.TCPConnector(keepalive_timeout=OIDC_BROWSER_TIMEOUT + 60)
     async with aiohttp.ClientSession(connector=connector) as session:
         log("Requesting discovery endpoint and client ID from NetWall")
-        bootstrap_xml = await _post_config_auth(session, server_uri, headers, ConfigAuthXml(client_environment=client_env))
+        bootstrap_xml = await post_auth(server_uri, ConfigAuthXml(client_environment=client_env))
         try:
             parsed = ConfigAuthXml.read_xml(bootstrap_xml)
         except Exception as exc:
             raise ClavisterAuthError(f"Failed to parse bootstrap XML: {exc}") from exc
 
-        if not parsed.discovery_endpoint or not parsed.client_id:
-            raise ClavisterAuthError("Server response did not contain discovery-endpoint/client-id")
+        log(f"Bootstrap authenticator={parsed.authenticator} message={parsed.message!r}")
 
-        log("Starting browser OIDC flow")
-        try:
-            oidc = await start_browser_oidc_flow(session, parsed.discovery_endpoint, parsed.client_id, parsed.nonce)
-        except OIDCError as exc:
-            raise ClavisterAuthError(str(exc)) from exc
+        # Some gateways request the username as the first auth step before they
+        # reveal the discovery endpoint or switch to OneTouch/OIDC.
+        token_reply = None
+        if parsed.authenticator == Authenticator.FORM and "username" in (parsed.message.lower()):
+            if not profile.username:
+                raise ClavisterAuthError("Profile missing username required for NetWall auth")
+            log("Submitting username to start the auth flow")
+            username_reply_xml = await post_auth(
+                auth_uri,
+                ConfigAuthXml(
+                    parameters=[ConfigAuthXmlParameter(name="username", value=profile.username)],
+                    authenticator=Authenticator.FORM,
+                ),
+            )
+            try:
+                parsed = ConfigAuthXml.read_xml(username_reply_xml)
+            except Exception as exc:
+                raise ClavisterAuthError(f"Failed to parse username-response XML: {exc}") from exc
+            log(f"After username: authenticator={parsed.authenticator} message={parsed.message!r}")
+            # If the server returned a session token immediately (complete), accept it.
+            if parsed.session_token:
+                token_reply = parsed
 
-        params = [
-            ConfigAuthXmlParameter(name="id-token", value=oidc.id_token),
-            ConfigAuthXmlParameter(name="refresh-token", value=oidc.refresh_token or ""),
-        ]
-        log("Submitting OIDC tokens to NetWall")
-        token_xml = await _post_config_auth(
-            session,
-            auth_uri,
-            headers,
-            ConfigAuthXml(parameters=params, authenticator=Authenticator.OIDC),
-        )
+        if token_reply is not None:
+            pass
+        elif parsed.authenticator == Authenticator.ONE_TOUCH:
+            if not profile.username:
+                raise ClavisterAuthError("Profile missing username required for OneTouch authentication")
+            log("Server requested OneTouch authentication; sending OneTouch request and polling for approval")
+            params = [ConfigAuthXmlParameter(name="username", value=profile.username)]
+            attempts = 12
+            delay = 5
+            for attempt in range(attempts):
+                one_xml = await post_auth(
+                    auth_uri,
+                    ConfigAuthXml(parameters=params, authenticator=Authenticator.ONE_TOUCH),
+                )
+                try:
+                    reply = ConfigAuthXml.read_xml(one_xml)
+                except Exception as exc:
+                    raise ClavisterAuthError(f"Failed to parse one-touch reply XML: {exc}") from exc
+                if reply.session_token:
+                    token_reply = reply
+                    break
+                log(f"OneTouch pending: {reply.message or 'waiting for mobile approval'} (attempt {attempt+1}/{attempts})")
+                await asyncio.sleep(delay)
+            if not token_reply:
+                raise ClavisterAuthError("OneTouch authentication did not complete within timeout; please approve on your device.")
+        else:
+            if not parsed.discovery_endpoint or not parsed.client_id:
+                raise ClavisterAuthError("Server response did not contain discovery-endpoint/client-id")
 
-        try:
-            token_reply = ConfigAuthXml.read_xml(token_xml)
-        except Exception as exc:
-            raise ClavisterAuthError(f"Failed to parse session token XML: {exc}") from exc
+            log("Starting browser OIDC flow")
+            try:
+                oidc = await start_browser_oidc_flow(session, parsed.discovery_endpoint, parsed.client_id, parsed.nonce)
+            except OIDCError as exc:
+                raise ClavisterAuthError(str(exc)) from exc
+
+            params = [
+                ConfigAuthXmlParameter(name="id-token", value=oidc.id_token),
+                ConfigAuthXmlParameter(name="refresh-token", value=oidc.refresh_token or ""),
+            ]
+            log("Submitting OIDC tokens to NetWall")
+            token_xml = await post_auth(
+                auth_uri,
+                ConfigAuthXml(parameters=params, authenticator=Authenticator.OIDC),
+            )
+
+            try:
+                token_reply = ConfigAuthXml.read_xml(token_xml)
+            except Exception as exc:
+                raise ClavisterAuthError(f"Failed to parse session token XML: {exc}") from exc
 
         if not token_reply.session_token:
             raise ClavisterAuthError("NetWall did not return a session token")
