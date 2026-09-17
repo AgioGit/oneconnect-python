@@ -7,8 +7,8 @@ Clavister NetWall OIDC + OpenConnect helper with a reusable core and a systray G
 Minimal, non-dev usage — run directly from GitHub with uvx (no install):
 
 ```bash
-uvx --from https://github.com/AgioGit/oneconnect-python oneconnect list
-uvx --from https://github.com/AgioGit/oneconnect-python oneconnect connect <profile>
+uvx --from git+https://github.com/AgioGit/oneconnect-python oneconnect list
+uvx --from git+https://github.com/AgioGit/oneconnect-python oneconnect connect <profile>
 ```
 
 Install locally for repeated use (creates and manages a venv with uv):
@@ -24,7 +24,7 @@ uv pip install -e .
 One-line remote run/install (convenient for quick checks):
 
 ```bash
-uvx https://github.com/AgioGit/oneconnect-python oneconnect --help
+uvx --from git+https://github.com/AgioGit/oneconnect-python oneconnect --help
 ```
 
 That's all — these commands cover casual usage and local editable installs.
