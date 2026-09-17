@@ -2,7 +2,7 @@
 Type=Application
 Name=OneConnect
 Comment=OneConnect VPN tray (Clavister NetWall + OpenConnect)
-Exec=oneconnect-gui
+Exec=oneconnect-gui %U
 Icon=oneconnect-gui
 Terminal=false
 StartupNotify=false
