@@ -4,71 +4,31 @@ Clavister NetWall OIDC + OpenConnect helper with a reusable core and a systray G
 
 ## Installation
 
-**Recommended: run directly with uvx**
-
-This project is packaged as a standard Python package with console entry points, so it works well with `uvx` from a checkout or a Git URL:
+Minimal, non-dev usage — run directly from GitHub with uvx (no install):
 
 ```bash
-git clone https://github.com/matnordlund/oneconnect-python.git
-cd oneconnect-python
-uvx --from . oneconnect --help
-uvx --from . oneconnect-gui --help
+uvx --from https://github.com/AgioGit/oneconnect-python oneconnect list
+uvx --from https://github.com/AgioGit/oneconnect-python oneconnect connect <profile>
 ```
 
-You can also run the CLI directly without a permanent install:
+Install locally for repeated use (creates and manages a venv with uv):
 
 ```bash
-uvx --from . oneconnect list
-uvx --from . oneconnect add-profile --name Demo --server-uri sg.demo.clavister.com
-uvx --from . oneconnect connect Demo
-```
-
-For a local editable install managed by `uv`:
-
-```bash
-git clone https://github.com/matnordlund/oneconnect-python.git
+git clone https://github.com/AgioGit/oneconnect-python.git
 cd oneconnect-python
 uv venv .venv
 source .venv/bin/activate
 uv pip install -e .
 ```
 
-Then run the CLI or GUI with the venv active:
-
-- `oneconnect` — CLI (list, add-profile, connect, disconnect, status)
-- `oneconnect-gui` — systray icon and profile manager (GTK3, Yaru theme)
-
-To leave the venv: `deactivate`. To use the app again later: `cd oneconnect-python && source .venv/bin/activate`, then `oneconnect` or `oneconnect-gui`.
-
-**Fedora/RHEL (CLI):** `uv` works well with a project-local venv and keeps the install in sync with the source tree. Install the system prerequisites first:
+One-line remote run/install (convenient for quick checks):
 
 ```bash
-sudo dnf install python3 python3-pip git openconnect polkit
-git clone https://github.com/matnordlund/oneconnect-python.git
-cd oneconnect-python
-uv venv .venv
-source .venv/bin/activate
-uv pip install -e .
+uvx https://github.com/AgioGit/oneconnect-python oneconnect --help
 ```
 
-If SELinux is enforcing (the default on Fedora/RHEL), see
-[docs/SELINUX.md](docs/SELINUX.md) — `openconnect` runs in a confined
-domain and needs a policy module before `connect`/`disconnect` will work.
+That's all — these commands cover casual usage and local editable installs.
 
-**From source without venv** (when your system allows it):
-
-```bash
-git clone https://github.com/matnordlund/oneconnect-python.git
-cd oneconnect-python
-uv pip install -e .
-```
-
-**Run without installing** (from repo root):
-
-```bash
-python3 oneconnect_cli.py list
-python3 -m oneconnect_gui.app   # GUI
-```
 
 ### Install troubleshooting
 

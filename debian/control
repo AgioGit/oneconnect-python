@@ -10,7 +10,7 @@ Build-Depends:
  python3-hatchling
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
-Homepage: https://github.com/matnordlund/oneconnect-python
+Homepage: https://github.com/AgioGit/oneconnect-python
 
 Package: oneconnect
 Architecture: all

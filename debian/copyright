@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: oneconnect-linux
-Source: https://github.com/matnordlund/oneconnect-python
+Source: https://github.com/AgioGit/oneconnect-python
 
 Files: *
 Copyright: 2025 Mattias Nordlund
