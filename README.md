@@ -4,14 +4,33 @@ Clavister NetWall OIDC + OpenConnect helper with a reusable core and a systray G
 
 ## Installation
 
-**From source using a virtual environment** (recommended on managed Linux, e.g. Debian/Ubuntu, where system Python is externally managed):
+**Recommended: run directly with uvx**
+
+This project is packaged as a standard Python package with console entry points, so it works well with `uvx` from a checkout or a Git URL:
 
 ```bash
 git clone https://github.com/matnordlund/oneconnect-python.git
 cd oneconnect-python
-python3 -m venv .venv
+uvx --from . oneconnect --help
+uvx --from . oneconnect-gui --help
+```
+
+You can also run the CLI directly without a permanent install:
+
+```bash
+uvx --from . oneconnect list
+uvx --from . oneconnect add-profile --name Demo --server-uri sg.demo.clavister.com
+uvx --from . oneconnect connect Demo
+```
+
+For a local editable install managed by `uv`:
+
+```bash
+git clone https://github.com/matnordlund/oneconnect-python.git
+cd oneconnect-python
+uv venv .venv
 source .venv/bin/activate
-pip install -e .
+uv pip install -e .
 ```
 
 Then run the CLI or GUI with the venv active:
@@ -21,19 +40,15 @@ Then run the CLI or GUI with the venv active:
 
 To leave the venv: `deactivate`. To use the app again later: `cd oneconnect-python && source .venv/bin/activate`, then `oneconnect` or `oneconnect-gui`.
 
-**Fedora/RHEL (CLI):** `python3 -m venv` works out of the box (no separate
-`python3-venv` package needed), and `pip install -e .` succeeds with pip's
-default build isolation — the build-isolation workarounds below are a
-Debian/Ubuntu-specific issue and shouldn't be needed here. Install the
-system prerequisites first:
+**Fedora/RHEL (CLI):** `uv` works well with a project-local venv and keeps the install in sync with the source tree. Install the system prerequisites first:
 
 ```bash
 sudo dnf install python3 python3-pip git openconnect polkit
 git clone https://github.com/matnordlund/oneconnect-python.git
 cd oneconnect-python
-python3 -m venv .venv
+uv venv .venv
 source .venv/bin/activate
-pip install -e .
+uv pip install -e .
 ```
 
 If SELinux is enforcing (the default on Fedora/RHEL), see
@@ -45,7 +60,7 @@ domain and needs a policy module before `connect`/`disconnect` will work.
 ```bash
 git clone https://github.com/matnordlund/oneconnect-python.git
 cd oneconnect-python
-pip install -e .
+uv pip install -e .
 ```
 
 **Run without installing** (from repo root):
@@ -57,17 +72,14 @@ python3 -m oneconnect_gui.app   # GUI
 
 ### Install troubleshooting
 
-- **ReadTimeoutError / "No matching distribution found" for setuptools**  
-  By default, pip uses *build isolation*: it downloads setuptools and wheel from PyPI into a temporary environment and does not use your system (or venv) setuptools. If PyPI is slow or unreachable, use one of these:
+- **Install `uv` first**
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+  Then rerun the `uvx` or `uv pip install -e .` commands above.
 
-  - **Use system setuptools (e.g. Debian/Ubuntu with `python3-setuptools` installed):** create the venv with access to system site-packages, then install without build isolation so the build uses the system setuptools and wheel:
-    ```bash
-    python3 -m venv .venv --system-site-packages
-    source .venv/bin/activate
-    pip install --no-build-isolation -e .
-    ```
-  - Increase timeout and retry: `pip install --timeout 120 -e .`
-  - If the venv already has setuptools and wheel (e.g. you installed them earlier), run: `pip install --no-build-isolation -e .`
+- **No `uv` binary in PATH**
+  Ensure `$HOME/.local/bin` is in your shell PATH or install `uv` via your system package manager.
 
 ## Project layout
 

@@ -17,7 +17,7 @@ sudo apt install -y \
   dh-python \
   pybuild-plugin-pyproject \
   python3-all \
-  python3-setuptools \
+  python3-hatchling \
   devscripts \
   dpkg-dev
 ```
