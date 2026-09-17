@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "oneconnect-linux"
+name = "oneconnect-python"
 version = "0.1.2"
 description = "Clavister NetWall OIDC + OpenConnect helper with reusable core and GTK UI"
 readme = "README.md"
